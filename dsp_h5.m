@@ -146,6 +146,10 @@ classdef dsp_h5 < h5_api
           for i = 1:numel(prop_fields)
             cont.(prop_fields{i}) = props.(prop_fields{i});
           end
+          if ( iscell(cont.frequencies) )
+            cont.frequencies = cell2mat( cont.frequencies );
+          end
+          cont.frequencies = cont.frequencies(:);
         otherwise
           error( 'Unrecognized Container subclass ''%s''', kind );
       end
