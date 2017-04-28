@@ -9,7 +9,7 @@ classdef dsp_h5 < h5_api
       obj@h5_api( varargin{:} );
     end
     
-    function write_(obj, container, gname, start)
+    function write_container_(obj, container, gname, start)
       
       %   WRITE_ -- Private method for writing Container objects to a .h5
       %     file. Overloaded to allow saving of SignalContainers.
@@ -22,7 +22,7 @@ classdef dsp_h5 < h5_api
       %       - `start` (double) -- Numeric index specifying the row at
       %         which to start writing data.
       
-      write_@h5_api( obj, container, gname, start );
+      write_container_@h5_api( obj, container, gname, start );
       
       switch ( class(container) )
         case 'Container'
@@ -82,39 +82,20 @@ classdef dsp_h5 < h5_api
           prop = trial_stats.(sets_to_check{i});
           if ( isempty(prop) ), prop = zeros( size(container.data, 1), 1 ); end
         end
-        [data_sz, data_chunk] = get_sz_chunk( prop );
-        if ( ~obj.is_set(current_set_path) )
-          h5create( obj.h5_file, current_set_path, data_sz, 'ChunkSize', data_chunk );  
-          next_row = size( prop, 1 ) + 1;
-        else
-          current_row = h5readatt( obj.h5_file, current_set_path, 'next_row' );
-          next_row = current_row + size( prop, 1 );
-        end
-        [prop_start, count] = get_start_count( prop, start );
-        h5write( obj.h5_file, current_set_path, prop, prop_start, count );
-        h5writeatt( obj.h5_file, current_set_path, 'next_row', next_row );
+        obj.write_matrix_( prop, current_set_path, start );
       end
-      function [start, count] = get_start_count( mat, start )
-        dims = ndims( mat );
-        start = [ start, ones(1, dims-1) ];
-        count = size( mat );
-      end
-      function [sz, chunk] = get_sz_chunk( mat )        
-        sz = size( mat );
-        dims = numel( sz );
-        sz(1) = Inf;
-        chunk = obj.CHUNK_SIZE( 1:dims );
-        chunk = min( [chunk; sz] );
-      end 
     end
     
-    function cont = read(obj, gname)
+    function cont = read_container_(obj, gname)
       
-      %   READ -- Load a Container from the given group.
+      %   READ_CONTAINER_ -- Load a Container or SignalContainer from the
+      %     given group.
       %
       %     IN:
       %       - `gname` (char) -- Path to the group housing /data and
       %         /labels datasets.
+      %     OUT:
+      %       - `cont` (Container, SignalContainer)
       
       obj.assert__is_group( gname );
       gname = obj.ensure_leading_backslash( gname );
