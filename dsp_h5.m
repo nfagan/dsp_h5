@@ -1,7 +1,9 @@
 classdef dsp_h5 < h5_api
   
-  properties;
-  end;
+  properties
+    REWRITE_WARNING_FIELDS = { 'days' };
+    ALLOW_REWRITE = false;
+  end
   
   methods
     
@@ -22,6 +24,31 @@ classdef dsp_h5 < h5_api
       %       - `start` (double) -- Numeric index specifying the row at
       %         which to start writing data.
       
+      if ( start > 1 )
+        %   check whether to add new data.
+        existing_labels = obj.read_labels_( gname );
+        new_labels = container.labels;
+        warning_fields = obj.REWRITE_WARNING_FIELDS;
+        for i = 1:numel( warning_fields )
+          existing_values = existing_labels.flat_uniques( warning_fields{i} );
+          new_values = new_labels.flat_uniques( warning_fields{i} );
+          in_common = intersect( existing_values, new_values );
+          if ( ~isempty(in_common) )
+            base_msg = sprintf( ['Some of the values in the ''%s'' field' ...
+                , ' of the incoming Container match those in the .h5 file.'] ...
+                , warning_fields{i} );
+            if ( ~obj.ALLOW_REWRITE )
+              full_msg = sprintf( ['%s\nSet obj.ALLOW_REWRITE = true to' ...
+                , ' proceed.'], base_msg );
+              error( full_msg );
+            else
+              fprintf( ['\n%s\nobj.ALLOW_REWRITE is true, so' ...
+                , ' data will be added anyway.'], base_msg );
+            end
+          end
+        end
+      end
+      
       write_container_@h5_api( obj, container, gname, start );
       
       switch ( class(container) )
@@ -31,7 +58,7 @@ classdef dsp_h5 < h5_api
           obj.write_signal_container( container, gname, start );          
         otherwise
           error( 'Cannot write Containers of subclass ''%s''', class(container) );
-      end      
+      end
     end
     
     function write_signal_container(obj, container, gname, start)
@@ -76,6 +103,10 @@ classdef dsp_h5 < h5_api
       sets_to_check = unique( [addtl_fields; current_sets(:)] );
       for i = 1:numel(sets_to_check)
         current_set_path = [ gname, '/' sets_to_check{i} ];
+        %   if removing data / labels, also remove the properties
+        if ( start == 1 && obj.is_set(current_set_path) )
+          obj.unlink( current_set_path );
+        end
         if ( ~any(strcmp(addtl_fields, sets_to_check{i})) )
           prop = zeros( size(container.data, 1), 1 );
         else
@@ -135,7 +166,6 @@ classdef dsp_h5 < h5_api
           error( 'Unrecognized Container subclass ''%s''', kind );
       end
     end
-    
   end
   
 end
